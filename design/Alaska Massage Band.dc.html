@@ -449,7 +449,10 @@
               <input value="{{ wContact }}" onChange="{{ setWContact }}" placeholder="For the text when you're up" style="padding: 14px 16px; borderRadius: 12px; border: 2px solid #EADFC9; font-size: 17px; background: #FFFBF3; color: #1E1A2B">
             </label>
           </div>
-          <button onClick="{{ submitWait }}" disabled="{{ waitNotReady }}" style="{{ waitSubmitStyle }}">Join the waitlist</button>
+          <button onClick="{{ submitWait }}" disabled="{{ waitNotReady }}" style="{{ waitSubmitStyle }}">{{ waitLabel }}</button>
+          <sc-if value="{{ waitHasError }}" hint-placeholder-val="{{ false }}">
+            <p role="alert" style="margin: 16px 0 0; font-size: 16px; color: #B5123C; font-weight: 700">{{ waitErrorText }}</p>
+          </sc-if>
         </section>
         <aside style="border: 2px solid #EADFC9; borderRadius: 24px; padding: 34px; text-align: center">
           <div style="font-size: 15px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6A637A; margin-bottom: 18px">At the booth</div>
@@ -717,7 +720,7 @@ class Component extends DCLogic {
     slotStart: null, dayBooked: null, loadingSlots: false,
     adminToken: '', adminUnlocked: false, adminError: '', adminBusy: false, adminBookings: null, adminFilter: 'all',
     name: '', contact: '', notes: '', booked: false,
-    wName: '', wContact: '', waitDone: false,
+    wName: '', wContact: '', waitDone: false, waitBusy: false, waitError: '', waitPos: 0,
     hEvent: '', hDates: '', hWhere: '', hSize: '', hName: '', hContact: '', hNotes: '', hireDone: false
   };
 
@@ -878,6 +881,23 @@ class Component extends DCLogic {
       if (typeof window !== 'undefined') window.scrollTo(0, 0);
     } catch (err) {
       this.setState({ paying: false, payError: err.message || 'Something went wrong.' });
+    }
+  }
+
+  // Saves a day-of waitlist entry. Only confirms once the server has it.
+  async joinWait() {
+    this.setState({ waitBusy: true, waitError: '' });
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: this.state.wName.trim(), contact: this.state.wContact.trim() })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not add you. Try again or come to the booth.');
+      this.setState({ waitBusy: false, waitDone: true, waitPos: data.position || 0 });
+    } catch (err) {
+      this.setState({ waitBusy: false, waitError: err.message || 'Could not add you. Try again or come to the booth.' });
     }
   }
 
@@ -1101,11 +1121,14 @@ class Component extends DCLogic {
 
       wName: s.wName, wContact: s.wContact,
       setWName: this.set('wName'), setWContact: this.set('wContact'),
-      waitNotReady: !waitReady,
-      waitSubmitStyle: this.cta(waitReady, '#F1571E'),
-      submitWait: () => { if (waitReady) this.setState({ waitDone: true }); },
+      waitNotReady: !waitReady || s.waitBusy,
+      waitSubmitStyle: this.cta(waitReady && !s.waitBusy, '#F1571E'),
+      submitWait: () => { if (waitReady && !s.waitBusy) this.joinWait(); },
+      resetWait: () => this.setState({ waitDone: false, wName: '', wContact: '', waitError: '', waitPos: 0 }),
+      waitLabel: s.waitBusy ? 'Adding you\u2026' : 'Join the waitlist',
+      waitHasError: !!s.waitError, waitErrorText: s.waitError,
       waitDone: s.waitDone, waitOpen: !s.waitDone,
-      waitConfirm: s.wName + ', you\u2019re added — we text the number you gave us when the table opens up.',
+      waitConfirm: s.wName + ', you\u2019re added' + (s.waitPos ? ' at number ' + s.waitPos + ' in line' : '') + ' — we text the number you gave us when the table opens up.',
 
       hEvent: s.hEvent, hDates: s.hDates, hWhere: s.hWhere, hSize: s.hSize, hName: s.hName, hContact: s.hContact, hNotes: s.hNotes,
       setHEvent: this.set('hEvent'), setHDates: this.set('hDates'), setHWhere: this.set('hWhere'),

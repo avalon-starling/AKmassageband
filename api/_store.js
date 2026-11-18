@@ -14,6 +14,8 @@
 //     name, contact, notes, amountCents, mode, paymentId, createdAt }
 
 const TOTAL_HANDS = 3; // three therapists = three "hands" units of capacity
+export const RATE_PER_MINUTE = 2; // dollars per minute, per therapist (matches the page)
+export const EVENT_DAYS = ['ww-fri', 'ww-sat', 'ww-sun', 'sf-fri', 'sf-sat', 'sf-sun'];
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
@@ -129,6 +131,89 @@ export async function release(record) {
   } else {
     memory.set(record.dayId, (memory.get(record.dayId) || []).filter((b) => b.id !== record.id));
   }
+}
+
+// ---------------------------------------------------------------------------
+// Day-of waitlist
+//   amb:waitlist        -> list of JSON { id, name, contact, createdAt }
+//   amb:waitlist:status -> hash id -> waiting | called | served | removed
+
+const WAITLIST = 'amb:waitlist';
+const WAITLIST_STATUS = 'amb:waitlist:status';
+export const WAITLIST_STATUSES = ['waiting', 'called', 'served', 'removed'];
+const memoryWaitlist = [];
+const memoryWaitStatus = new Map();
+
+// Adds an entry and returns its place among people still waiting.
+export async function addToWaitlist(entry) {
+  const db = await store();
+  if (db) await db.rpush(WAITLIST, JSON.stringify(entry));
+  else memoryWaitlist.push(entry);
+  const all = await listWaitlist();
+  const waiting = all.filter((w) => w.status === 'waiting');
+  return waiting.findIndex((w) => w.id === entry.id) + 1;
+}
+
+export async function listWaitlist() {
+  const db = await store();
+  let entries;
+  let statuses;
+  if (db) {
+    entries = (await db.lrange(WAITLIST, 0, -1)).map(parse);
+    statuses = (await db.hgetall(WAITLIST_STATUS)) || {};
+  } else {
+    entries = memoryWaitlist.slice();
+    statuses = Object.fromEntries(memoryWaitStatus);
+  }
+  return entries.map((w) => ({ ...w, status: statuses[w.id] || 'waiting' }));
+}
+
+export async function setWaitlistStatus(id, status) {
+  const db = await store();
+  if (db) await db.hset(WAITLIST_STATUS, { [id]: status });
+  else memoryWaitStatus.set(id, status);
+}
+
+// ---------------------------------------------------------------------------
+// Owner-managed details layered over each booking, kept apart from the booking
+// list so editing them never touches the capacity data.
+//   amb:booking:meta -> hash bookingId -> JSON { assigned: [names], paidOut: { name: iso } }
+
+const BOOKING_META = 'amb:booking:meta';
+const memoryMeta = new Map();
+
+export async function getAllMeta() {
+  const db = await store();
+  if (!db) return Object.fromEntries(memoryMeta);
+  const raw = (await db.hgetall(BOOKING_META)) || {};
+  return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, parse(v)]));
+}
+
+export async function setMeta(id, meta) {
+  const db = await store();
+  if (db) await db.hset(BOOKING_META, { [id]: JSON.stringify(meta) });
+  else memoryMeta.set(id, meta);
+}
+
+// ---------------------------------------------------------------------------
+// Settings Alice can change from her dashboard.
+//   amb:settings -> hash { payoutPercent }
+
+const SETTINGS = 'amb:settings';
+const DEFAULT_SETTINGS = { payoutPercent: 100 };
+const memorySettings = { ...DEFAULT_SETTINGS };
+
+export async function getSettings() {
+  const db = await store();
+  const raw = db ? (await db.hgetall(SETTINGS)) || {} : memorySettings;
+  const pct = Number(raw.payoutPercent);
+  return { payoutPercent: Number.isFinite(pct) ? pct : DEFAULT_SETTINGS.payoutPercent };
+}
+
+export async function setSettings(patch) {
+  const db = await store();
+  if (db) await db.hset(SETTINGS, patch);
+  else Object.assign(memorySettings, patch);
 }
 
 export { TOTAL_HANDS };

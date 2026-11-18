@@ -1,8 +1,6 @@
 // GET /api/bookings  — admin only. Requires header  x-admin-token: <ADMIN_TOKEN>
 // Set ADMIN_TOKEN in Vercel → Settings → Environment Variables.
-import { listAllBookings } from './_store.js';
-
-const DAYS = ['ww-fri', 'ww-sat', 'ww-sun', 'sf-fri', 'sf-sat', 'sf-sun'];
+import { listAllBookings, EVENT_DAYS as DAYS } from './_store.js';
 
 export default async function handler(req, res) {
   const supplied = req.headers['x-admin-token'] || req.query.token;

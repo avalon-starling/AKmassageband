@@ -54,10 +54,20 @@ Capacity is three therapists — three "hands units." A two-hand session uses on
 
 With no API reachable (local preview, static-only hosting) the grid shows sample occupancy so the flow still demos.
 
-## 6. The Bookings page
+## 6. Dashboards
 
-Footer → **Band login**. Enter `ADMIN_TOKEN` and it reads `GET /api/bookings`. Until deployed it shows sample rows with a yellow notice. Walk-ups added at the booth aren't in here.
+| Page | Who | Passcode (Vercel env var) | Sees |
+|---|---|---|---|
+| `/alice` | Owner | `ALICE_TOKEN`, or the existing `ADMIN_TOKEN` | Every booking with money, the day-of waitlist, payouts for every therapist |
+| `/nalani` | Therapist | `NALANI_TOKEN` | Only the sessions she's assigned to, and what she's earned, been paid and is owed |
+
+- **Assigning:** a booking for a named therapist fills the first seat; "Whoever is free" and the extra seats on four- and six-handed sessions start unassigned. Alice picks therapists in the Bookings tab, and a session shows on a therapist's dashboard once they're on it.
+- **Payouts:** a therapist earns the payout percentage (set on Alice's Payouts tab, 100% until she changes it) of $2/min for their time on each session. Alice marks each share paid, or all of a therapist's owed shares at once.
+- **Waitlist:** people join from the booking page's waitlist tab. Alice marks them called, served or removed; the list refreshes every 30 seconds while open.
+- **Adding a therapist:** add them to `ACCOUNTS` in `api/_auth.js` with a passcode variable, copy `nalani.html` to `<name>.html` and change `data-account`, and set the variable in Vercel.
+
+The footer's **Band login** still opens the older bookings list with `ADMIN_TOKEN`.
 
 ## 7. Still to wire up
 
-The waitlist and hire-us forms are still front-end only — say the word and I'll point them at an email service or the same API.
+The hire-us form is still front-end only.
