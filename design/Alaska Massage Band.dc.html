@@ -708,7 +708,7 @@
 </div>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;ratePerMinute&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:1,&quot;max&quot;:10,&quot;unit&quot;:&quot;$/min&quot;,&quot;section&quot;:&quot;Booking&quot;},&quot;slotInterval&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:30,&quot;options&quot;:[20,30,60],&quot;tsType&quot;:&quot;number&quot;,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Booking&quot;},&quot;depositPercent&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:25,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareAppId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareLocationId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareSandbox&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Payments&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;ratePerMinute&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:1,&quot;max&quot;:10,&quot;unit&quot;:&quot;$/min&quot;,&quot;section&quot;:&quot;Booking&quot;},&quot;slotInterval&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:30,&quot;options&quot;:[20,30,60],&quot;tsType&quot;:&quot;number&quot;,&quot;unit&quot;:&quot;min&quot;,&quot;section&quot;:&quot;Booking&quot;},&quot;depositPercent&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:25,&quot;tsType&quot;:&quot;number&quot;,&quot;min&quot;:0,&quot;max&quot;:100,&quot;step&quot;:5,&quot;unit&quot;:&quot;%&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareAppId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareLocationId&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;LPPH2DFKQ48JH&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Payments&quot;},&quot;squareSandbox&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Payments&quot;}}">
 class Component extends DCLogic {
   state = {
     page: 'home', tab: 'reserve',
@@ -856,7 +856,7 @@ class Component extends DCLogic {
   async charge(amountDollars, payload) {
     this.setState({ paying: true, payError: '' });
     try {
-      if (this.card) {
+      if (!this.card) throw new Error('Online card payment is not available right now. Come to the booth and we will book you in.'); if (this.card) {
         const result = await this.card.tokenize();
         if (result.status !== 'OK') throw new Error('Check the card details.');
         const res = await fetch('/api/create-payment', {
@@ -1061,7 +1061,7 @@ class Component extends DCLogic {
       dueLabel: s.payMode === 'full' ? 'Charging now' : 'Holding now',
       dueNow: '$' + dueNow,
       balanceNote: s.payMode === 'full' ? 'Paid in advance — walk in and lie down.' : 'Remaining $' + (total - dueNow) + ' at the booth after your session.',
-      cardFieldNote: this.props.squareAppId ? 'Loading secure card field…' : 'Square card field mounts here once your Square keys are set in the deployment.',
+      cardFieldNote: this.props.squareAppId ? 'Loading secure card field…' : 'Online card payment is not available right now. Come to the booth and we will book you in.',
       payStyle: this.cta(!s.paying, '#35A745'),
       payLabel: s.paying ? 'Talking to Square…' : (s.payMode === 'full' ? 'Pay $' + dueNow : 'Hold $' + dueNow),
       paying: s.paying,
