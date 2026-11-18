@@ -24,7 +24,7 @@ SQUARE_ENV          = sandbox        # switch to "production" when you go live
 ADMIN_TOKEN         = <a long random string>   # the passcode for the Bookings page
 ```
 
-Also add a **KV store**: Vercel → Storage → Create → KV, connect it to this project. That injects `KV_REST_API_URL` and `KV_REST_API_TOKEN` automatically. Then `npm i @vercel/kv`. Without a KV store the booking list lives in memory and resets on every deploy — fine for testing, not for a real weekend.
+Also add a database: Vercel → Storage → **Upstash Redis** (Marketplace), connected to this project. That injects `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (or the older `KV_REST_API_URL` / `KV_REST_API_TOKEN`; `api/_store.js` accepts either). Without it the booking list lives in memory and resets on every deploy: fine for testing, not for a real weekend.
 
 ## 3. Deploy
 
@@ -50,7 +50,7 @@ Add your domain under Project → Settings → Domains and follow the DNS instru
 Capacity is three therapists — three "hands units." A two-hand session uses one, four-handed uses two, six-handed uses all three.
 
 - `GET /api/slots?day=sf-sat` returns what's already booked (times and hand counts only, no names). The page greys out any start time where the overlap would exceed capacity, or where the specific therapist you asked for is already working.
-- `POST /api/create-payment` **claims the slot before charging.** If someone beat you to it you get a 409, the page sends you back to the time grid with refreshed availability, and no card is charged. If Square then declines, the claim is released.
+- `POST /api/create-payment` **claims the slot before charging.** The capacity check and the write run as one Lua script inside Redis, so two simultaneous requests can't both take the last hands. If someone beat you to it you get a 409, the page sends you back to the time grid with refreshed availability, and no card is charged. If Square then declines, the claim is released.
 
 With no API reachable (local preview, static-only hosting) the grid shows sample occupancy so the flow still demos.
 
